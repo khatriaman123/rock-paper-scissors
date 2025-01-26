@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rock vs Paper vs Scissors</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        #game-container {
+            position: relative;
+            width: 90%; /* Use percentage for responsiveness */
+            max-width: 400px; /* Set a maximum width */
+            height: 90vw; /* Maintain a square shape based on viewport width */
+            max-height: 400px;
+            border: 2px solid #000;
+            overflow: hidden;
+            background-color: #fff;
+        }
+
+        .object {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .rock {
+            background-color: #b3b3b3;
+            color: #000;
+        }
+
+        .paper {
+            background-color: #ffeb3b;
+            color: #000;
+        }
+
+        .scissors {
+            background-color: #ff5722;
+            color: #fff;
+        }
+
+        #status {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        #scoreboard {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        #scoreboard div {
+            margin: 5px;
+        }
+
+        #popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            border: 2px solid #000;
+            padding: 15px;
+            text-align: center;
+            z-index: 1000;
+            width: 80%; /* Adjust for smaller screens */
+            max-width: 300px;
+        }
+
+        #popup button {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 18px;
+            }
+
+            #game-container {
+                width: 90%; /* Use most of the viewport width */
+                height: 90vw; /* Match the width for square dimensions */
+            }
+
+            .object {
+                width: 8px;
+                height: 8px;
+                font-size: 8px;
+            }
+
+            #popup button {
+                padding: 8px 15px;
+                font-size: 12px;
+            }
+
+            #scoreboard div {
+                font-size: 12px;
+            }
+
+            #status {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Rock vs Paper vs Scissors</h1>
+    <div id="game-container"></div>
+    <div id="scoreboard">
+        <div>Rocks: <span id="rock-count">0</span></div>
+        <div>Papers: <span id="paper-count">0</span></div>
+        <div>Scissors: <span id="scissors-count">0</span></div>
+    </div>
+    <div id="status"></div>
+
+    <!-- Popup for Object Selection -->
+    <div id="overlay"></div>
+    <div id="popup">
+        <div>Select your object:</div>
+        <button onclick="selectObject('rock')">Rock</button>
+        <button onclick="selectObject('paper')">Paper</button>
+        <button onclick="selectObject('scissors')">Scissors</button>
+    </div>
+
+    <script>
+        // Your JavaScript logic remains unchanged
+        const container = document.getElementById("game-container");
+        const rockCount = document.getElementById("rock-count");
+        const paperCount = document.getElementById("paper-count");
+        const scissorsCount = document.getElementById("scissors-count");
+        const status = document.getElementById("status");
+        const popup = document.getElementById("popup");
+        const overlay = document.getElementById("overlay");
+
+        const objects = [];
+        const objectCount = 60; // 20 of each type
+        const objectTypes = ["rock", "paper", "scissors"];
+        const typeIcons = { rock: "🪨", paper: "📄", scissors: "✂️" };
+        const speed = 2;
+        let userSelection = "";
+        let gameOver = false;
+
+        class GameObject {
+            constructor(type, x, y, dx, dy) {
+                this.type = type;
+                this.x = x;
+                this.y = y;
+                this.dx = dx;
+                this.dy = dy;
+                this.element = document.createElement("div");
+                this.element.classList.add("object", type);
+                this.element.textContent = typeIcons[type];
+                container.appendChild(this.element);
+                this.updatePosition();
+            }
+
+            updatePosition() {
+                this.element.style.transform = `translate(${this.x}px, ${this.y}px)`;
+            }
+
+            move() {
+                this.x += this.dx;
+                this.y += this.dy;
+
+                // Bounce off walls
+                if (this.x <= 0 || this.x >= container.clientWidth - 10) {
+                    this.dx = -this.dx;
+                }
+
+                if (this.y <= 0 || this.y >= container.clientHeight - 10) {
+                    this.dy = -this.dy;
+                }
+
+                this.updatePosition();
+            }
+
+            checkCollision(other) {
+                const distance = Math.hypot(this.x - other.x, this.y - other.y);
+                return distance < 10;
+            }
+
+            resolveCollision(other) {
+                const rules = {
+                    rock: "scissors",
+                    paper: "rock",
+                    scissors: "paper",
+                };
+
+                if (rules[this.type] === other.type) {
+                    other.changeType(this.type);
+                } else if (rules[other.type] === this.type) {
+                    this.changeType(other.type);
+                }
+            }
+
+            changeType(newType) {
+                this.type = newType;
+                this.element.className = `object ${newType}`;
+                this.element.textContent = typeIcons[newType];
+            }
+        }
+
+        function createObjects() {
+            for (let i = 0; i < objectCount; i++) {
+                const type = objectTypes[Math.floor(i / (objectCount / 3))];
+                const x = Math.random() * (container.clientWidth - 10);
+                const y = Math.random() * (container.clientHeight - 10);
+                const dx = (Math.random() - 0.5) * speed * 2;
+                const dy = (Math.random() - 0.5) * speed * 2;
+                objects.push(new GameObject(type, x, y, dx, dy));
+            }
+        }
+
+        function updateCounts() {
+            const counts = { rock: 0, paper: 0, scissors: 0 };
+            objects.forEach((obj) => counts[obj.type]++);
+            rockCount.textContent = counts.rock;
+            paperCount.textContent = counts.paper;
+            scissorsCount.textContent = counts.scissors;
+
+            const activeTypes = Object.keys(counts).filter((type) => counts[type] > 0);
+
+            if (activeTypes.length === 1) {
+                const remainingType = activeTypes[0];
+                if (remainingType === userSelection) {
+                    showPopup("You win the game!");
+                } else {
+                    showPopup("Oops! Sorry, you lost the game!");
+                }
+                gameOver = true;
+                return true;
+            }
+
+            if (counts[userSelection] === 0) {
+                showPopup("Oops! Sorry, you lost the game!");
+                gameOver = true;
+                return true;
+            }
+
+            return false;
+        }
+
+        function updateGame() {
+            if (gameOver) return;
+
+            for (let i = 0; i < objects.length; i++) {
+                const obj = objects[i];
+                obj.move();
+
+                for (let j = i + 1; j < objects.length; j++) {
+                    const other = objects[j];
+                    if (obj.checkCollision(other)) {
+                        obj.resolveCollision(other);
+                    }
+                }
+            }
+
+            if (!updateCounts()) {
+                requestAnimationFrame(updateGame);
+            }
+        }
+
+        function showPopup(message) {
+            popup.innerHTML = `<div>${message}</div><button onclick="restartGame()">Restart</button>`;
+            overlay.style.display = "block";
+            popup.style.display = "block";
+        }
+
+        function restartGame() {
+            location.reload();
+        }
+
+        function selectObject(object) {
+            userSelection = object;
+            popup.style.display = "none";
+            overlay.style.display = "none";
+            createObjects();
+            updateCounts();
+            updateGame();
+        }
+    </script>
+</body>
+</html>
